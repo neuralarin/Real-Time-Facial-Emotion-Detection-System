@@ -1,6 +1,7 @@
-av
-mediapipe==0.10.21
 streamlit
 streamlit-webrtc
+av
+mediapipe==0.10.21
 torch
-opencv-python-headless
+numpy<2
+opencv-contrib-python==4.11.0.86
