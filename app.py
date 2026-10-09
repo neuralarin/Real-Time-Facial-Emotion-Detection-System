@@ -4,6 +4,7 @@ import mediapipe as mp
 import streamlit as st
 import torch
 import torch.nn as nn
+import re
 from collections import deque, Counter
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode
 
@@ -37,7 +38,8 @@ def load_model():
 
 
 class EmotionProcessor(VideoProcessorBase):
-    def __init__(self):
+    def __init__(self, facing_mode="user"):
+        self.facing_mode = facing_mode
         self.model = load_model()
         self.predictions = deque(maxlen=15)
         self.detector = mp.solutions.face_detection.FaceDetection(
@@ -45,7 +47,11 @@ class EmotionProcessor(VideoProcessorBase):
         )
 
     def recv(self, frame):
-        img = cv2.flip(frame.to_ndarray(format="bgr24"), 1)
+        img = frame.to_ndarray(format="bgr24")
+
+        if self.facing_mode == "user":
+            img = cv2.flip(img, 1)
+
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.detector.process(rgb)
 
@@ -83,13 +89,29 @@ st.set_page_config(page_title="Emotion Recognition", page_icon="😊")
 st.title("😊 Real-Time Emotion Recognition")
 st.write("Click START and allow camera access.")
 
+user_agent = st.context.headers.get("User-Agent", "").lower()
+is_mobile = bool(re.search(r"android|iphone|ipad|ipod|mobile", user_agent))
+
+facing_mode = "user"
+
+if is_mobile:
+    camera = st.radio(
+        "Choose camera",
+        ["Front Camera 🤳", "Back Camera 📷"],
+        horizontal=True,
+    )
+    facing_mode = "user" if camera == "Front Camera 🤳" else "environment"
+
 if not hasattr(mp, "solutions"):
     st.error("Install compatible MediaPipe: pip install mediapipe==0.10.21")
 else:
     webrtc_streamer(
-        key="emotion",
+        key=f"emotion-{facing_mode}",
         mode=WebRtcMode.SENDRECV,
-        video_processor_factory=EmotionProcessor,
-        media_stream_constraints={"video": True, "audio": False},
+        video_processor_factory=lambda: EmotionProcessor(facing_mode),
+        media_stream_constraints={
+            "video": {"facingMode": {"ideal": facing_mode}},
+            "audio": False,
+        },
         async_processing=True,
     )

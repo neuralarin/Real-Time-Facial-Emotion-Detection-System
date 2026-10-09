@@ -4,4 +4,3 @@ av
 mediapipe==0.10.21
 torch
 numpy<2
-opencv-contrib-python-headless==4.11.0.86
